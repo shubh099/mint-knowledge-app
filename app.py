@@ -1,7 +1,10 @@
-# app.py -- FINAL DEPLOYMENT-READY VERSION
+# app.py -- FINAL ROBUST VERSION for Local & Cloud
 
 import streamlit as st
 import os
+
+# Used to load the .env file for local development
+from dotenv import load_dotenv
 
 from pinecone import Pinecone
 from llama_index.core import VectorStoreIndex, Settings
@@ -9,22 +12,34 @@ from llama_index.vector_stores.pinecone import PineconeVectorStore
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 
-# --- 1. Load API Keys from Streamlit's Secret Management ---
-# For local development, it will fall back to your environment variables
-try:
-    PINECONE_API_KEY = st.secrets["PINECONE_API_KEY"]
-    PINECONE_ENVIRONMENT = st.secrets["PINECONE_ENVIRONMENT"]
-    GOOGLE_API_KEY = st.secrets["GOOGLE_API_KEY"]
-except KeyError:
-    # Fallback for local development if secrets aren't set in Streamlit Cloud
+# --- 1. Load API Keys Robustly ---
+
+# This function checks if we're running on Streamlit Cloud
+def is_running_on_streamlit_cloud():
+    """Returns True if the app is running on Streamlit Cloud, False otherwise."""
+    return "STREAMLIT_SERVER_PORT" in os.environ
+
+# Load .env file only when running locally
+if not is_running_on_streamlit_cloud():
+    load_dotenv()
+
+# Load keys based on the environment
+if is_running_on_streamlit_cloud():
+    # When deployed, use Streamlit's secrets manager
+    PINECONE_API_KEY = st.secrets.get("PINECONE_API_KEY")
+    PINECONE_ENVIRONMENT = st.secrets.get("PINECONE_ENVIRONMENT")
+    GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY")
+else:
+    # When running locally, use environment variables loaded from .env
     PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
     PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT")
     GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 
 PINECONE_INDEX_NAME = "mint-e-papers" 
 
+# Error checking for keys
 if not all([PINECONE_API_KEY, PINECONE_ENVIRONMENT, GOOGLE_API_KEY]):
-    st.error("API keys are not configured. Please add them to Streamlit's secrets manager.", icon="🚨")
+    st.error("API keys are not configured. Please add them to your .env file (for local) or Streamlit's secrets manager (for deployment).", icon="🚨")
     st.stop()
 
 # --- Initialize Models and Pinecone Connection ---
