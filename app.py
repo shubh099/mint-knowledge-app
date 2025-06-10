@@ -1,10 +1,7 @@
-# app.py -- FINAL ROBUST VERSION for Local & Cloud
+# app.py -- FINAL STABLE VERSION
 
 import streamlit as st
 import os
-
-# Used to load the .env file for local development
-from dotenv import load_dotenv
 
 from pinecone import Pinecone
 from llama_index.core import VectorStoreIndex, Settings
@@ -12,34 +9,15 @@ from llama_index.vector_stores.pinecone import PineconeVectorStore
 from llama_index.llms.google_genai import GoogleGenAI
 from llama_index.embeddings.google_genai import GoogleGenAIEmbedding
 
-# --- 1. Load API Keys Robustly ---
-
-# This function checks if we're running on Streamlit Cloud
-def is_running_on_streamlit_cloud():
-    """Returns True if the app is running on Streamlit Cloud, False otherwise."""
-    return "STREAMLIT_SERVER_PORT" in os.environ
-
-# Load .env file only when running locally
-if not is_running_on_streamlit_cloud():
-    load_dotenv()
-
-# Load keys based on the environment
-if is_running_on_streamlit_cloud():
-    # When deployed, use Streamlit's secrets manager
-    PINECONE_API_KEY = st.secrets.get("PINECONE_API_KEY")
-    PINECONE_ENVIRONMENT = st.secrets.get("PINECONE_ENVIRONMENT")
-    GOOGLE_API_KEY = st.secrets.get("GOOGLE_API_KEY")
-else:
-    # When running locally, use environment variables loaded from .env
-    PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
-    PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT")
-    GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
+# --- 1. Configure Keys and Models ---
+PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY", "pcsk_3LjyLy_N1zMfrJHKTLkFnzU7TLW2QnvQdFgu7euDkdWoXyQcmx3pSxF4WzYHSHHqbWnMYe")
+PINECONE_ENVIRONMENT = os.environ.get("PINECONE_ENVIRONMENT", "pcsk_3LjyLy_N1zMfrJHKTLkFnzU7TLW2QnvQdFgu7euDkdWoXyQcmx3pSxF4WzYHSHHqbWnMYe")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY", "AIzaSyDf1KMmiqJUzFDVbFY136e06axfYP6qcUc")
 
 PINECONE_INDEX_NAME = "mint-e-papers" 
 
-# Error checking for keys
-if not all([PINECONE_API_KEY, PINECONE_ENVIRONMENT, GOOGLE_API_KEY]):
-    st.error("API keys are not configured. Please add them to your .env file (for local) or Streamlit's secrets manager (for deployment).", icon="🚨")
+if "YOUR_PINECONE" in PINECONE_API_KEY or "YOUR_GOOGLE" in GOOGLE_API_KEY:
+    st.error("API keys are not configured. Please replace the placeholder values in the app.py script.")
     st.stop()
 
 # --- Initialize Models and Pinecone Connection ---
@@ -53,7 +31,7 @@ try:
     pc = Pinecone(api_key=PINECONE_API_KEY, environment=PINECONE_ENVIRONMENT)
     pinecone_index = pc.Index(PINECONE_INDEX_NAME)
 except Exception as e:
-    st.error(f"Failed to initialize models or services. Error: {e}", icon="🚨")
+    st.error(f"Failed to initialize models or services. Error: {e}")
     st.stop()
 
 # --- 2. Load the Knowledge Base and create the Query Engine ---
@@ -63,6 +41,7 @@ def get_query_engine():
     vector_store = PineconeVectorStore(pinecone_index=pinecone_index)
     index = VectorStoreIndex.from_vector_store(vector_store)
     
+    # Increase top_k to cast a wide net and find the right context
     query_engine = index.as_query_engine(similarity_top_k=20)
     
     return query_engine
@@ -82,7 +61,7 @@ for message in st.session_state.messages:
 try:
     query_engine = get_query_engine()
 except Exception as e:
-    st.error(f"Could not connect to the query engine. Error: {e}", icon="🚨")
+    st.error(f"Could not connect to the query engine. Error: {e}")
     st.stop()
 
 if prompt := st.chat_input("What is your question?"):
@@ -97,4 +76,4 @@ if prompt := st.chat_input("What is your question?"):
                 st.markdown(response.response)
                 st.session_state.messages.append({"role": "assistant", "content": response.response})
             except Exception as e:
-                st.error(f"An error occurred while querying: {e}", icon="🚨")
+                st.error(f"An error occurred while querying: {e}")
